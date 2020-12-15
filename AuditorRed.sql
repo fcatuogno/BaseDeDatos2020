@@ -25,71 +25,71 @@ USE AuditorRed;
 ********************************************************************************/
 CREATE TABLE `Edificio`
 (
-    `EdificioId` INT NOT NULL,
+    `EdificioID` INT NOT NULL AUTO_INCREMENT,
     `Nombre` NVARCHAR(25),
     `Direccion` NVARCHAR(50),
-    CONSTRAINT `PK_Edificio` PRIMARY KEY  (`EdificioId`)
+    CONSTRAINT `PK_Edificio` PRIMARY KEY  (`EdificioID`)
 );
 
 CREATE TABLE `Tablero`
 (
-    `TableroId` INT NOT NULL,
+    `TableroID` INT NOT NULL AUTO_INCREMENT,
     `Nombre` NVARCHAR(25) ,
-	`EdificioId` INT NOT NULL,
-    CONSTRAINT `PK_Tablero` PRIMARY KEY  (`TableroId`)
+	`EdificioID` INT NOT NULL,
+    CONSTRAINT `PK_Tablero` PRIMARY KEY  (`TableroID`)
 );
 
 CREATE TABLE `Linea`
 (
-    `LineaId` INT NOT NULL,
+    `LineaID` INT NOT NULL AUTO_INCREMENT,
     `Nombre` NVARCHAR(25),
-    `TableroId` INT NOT NULL,	
-    CONSTRAINT `PK_Linea` PRIMARY KEY  (`LineaId`)
+    `TableroID` INT NOT NULL,	
+    CONSTRAINT `PK_Linea` PRIMARY KEY  (`LineaID`)
 );
 
 CREATE TABLE `Unidad`
 (
-    `UnidadId` INT NOT NULL,
+    `UnidadID` INT NOT NULL AUTO_INCREMENT,
     `Unidad` NVARCHAR(25),
 
-    CONSTRAINT `PK_Unidad` PRIMARY KEY  (`UnidadId`)
+    CONSTRAINT `PK_Unidad` PRIMARY KEY  (`UnidadID`)
 );
 
 CREATE TABLE `Medicion`
 (
-    `MedicionId` INT NOT NULL,
-    `LineaId` INT NOT NULL,
-    `UnidadId` INT NOT NULL,
+    `MedicionID` INT NOT NULL AUTO_INCREMENT,
+    `LineaID` INT NOT NULL,
+    `UnidadID` INT NOT NULL,
     `Intervalo` INT NOT NULL,
 
-    CONSTRAINT `PK_Medicion` PRIMARY KEY  (`MedicionId`)
+    CONSTRAINT `PK_Medicion` PRIMARY KEY  (`MedicionID`)
 );
 
 CREATE TABLE `ValorMedicion`
 (
-    `ValorId` INT NOT NULL,
+    `ValorID` INT NOT NULL AUTO_INCREMENT,
     `Valor` NUMERIC(10,2),
     `UnixTimeStamp` INT,
-    `MedicionId` INT NOT NULL,
+    `MedicionID` INT NOT NULL,
     
     CONSTRAINT `PK_ValorMedicion` PRIMARY KEY  (`ValorID`)
 );
 
 CREATE TABLE `Umbral`
 (
-    `UmbralId` INT NOT NULL,
-    `UnidadId` INT NOT NULL,
+    `UmbralID` INT NOT NULL AUTO_INCREMENT,
+    `UnidadID` INT NOT NULL,
     `Severidad` ENUM('leve', 'grave', 'critico'),
 
-    `Umbral_Inferior` NUMERIC(10,2),
-    `Umbral_Superior` NUMERIC(10,2),
+    `UmbralInferior` NUMERIC(10,2),
+    `UmbralSuperior` NUMERIC(10,2),
      
     CONSTRAINT `PK_Umbral` PRIMARY KEY (`UmbralID`)
 );
 
 CREATE TABLE `Alarma`
 (
-    `AlarmaID` INT NOT NULL,
+    `AlarmaID` INT NOT NULL AUTO_INCREMENT,
     `UmbralID` INT NOT NULL,
     `ValorID` INT NOT NULL,    
     CONSTRAINT `PK_Alarmas` PRIMARY KEY (`AlarmaID`)
@@ -103,42 +103,42 @@ CREATE TABLE `Alarma`
 /*******************************************************************************
    Create Foreign Keys
 ********************************************************************************/
-ALTER TABLE `Tablero` ADD CONSTRAINT `FK_TableroEdificioId`
-    FOREIGN KEY (`EdificioId`) REFERENCES `Edificio` (`EdificioId`) 
+ALTER TABLE `Tablero` ADD CONSTRAINT `FK_TableroEdificioID`
+    FOREIGN KEY (`EdificioID`) REFERENCES `Edificio` (`EdificioID`) 
     ON UPDATE CASCADE
     ON DELETE CASCADE;
 
-ALTER TABLE `Linea` ADD CONSTRAINT `FK_LineaTableroId`
-    FOREIGN KEY (`TableroId`) REFERENCES `Tablero` (`TableroId`) 
+ALTER TABLE `Linea` ADD CONSTRAINT `FK_LineaTableroID`
+    FOREIGN KEY (`TableroID`) REFERENCES `Tablero` (`TableroID`) 
     ON UPDATE CASCADE
     ON DELETE CASCADE;
 
-ALTER TABLE `Medicion` ADD CONSTRAINT `FK_MedicionUnidadId`
-    FOREIGN KEY (`UnidadId`) REFERENCES `Unidad` (`UnidadId`) 
+ALTER TABLE `Medicion` ADD CONSTRAINT `FK_MedicionUnidadID`
+    FOREIGN KEY (`UnidadID`) REFERENCES `Unidad` (`UnidadID`) 
     ON UPDATE NO ACTION
     ON DELETE NO ACTION;
 
-ALTER TABLE `Medicion` ADD CONSTRAINT `FK_MedicionLineaId`
-    FOREIGN KEY (`LineaId`) REFERENCES `Linea` (`LineaId`) 
+ALTER TABLE `Medicion` ADD CONSTRAINT `FK_MedicionLineaID`
+    FOREIGN KEY (`LineaID`) REFERENCES `Linea` (`LineaID`) 
 	ON DELETE  CASCADE
 	ON UPDATE  CASCADE;
 
-ALTER TABLE `ValorMedicion` ADD CONSTRAINT `FK_ValorMedicioMedicionId`
-    FOREIGN KEY (`MedicionId`) REFERENCES `Medicion` (`MedicionId`) 
+ALTER TABLE `ValorMedicion` ADD CONSTRAINT `FK_ValorMedicioMedicionID`
+    FOREIGN KEY (`MedicionID`) REFERENCES `Medicion` (`MedicionID`) 
 	ON DELETE  CASCADE
 	ON UPDATE  CASCADE;
 
-ALTER TABLE `Umbral` ADD CONSTRAINT `FK_UmbralUnidadId`
-    FOREIGN KEY (`UnidadId`) REFERENCES `Unidad` (`UnidadId`) 
+ALTER TABLE `Umbral` ADD CONSTRAINT `FK_UmbralUnidadID`
+    FOREIGN KEY (`UnidadID`) REFERENCES `Unidad` (`UnidadID`) 
 	ON DELETE  CASCADE
 	ON UPDATE  CASCADE;
 
-ALTER TABLE `Alarma` ADD CONSTRAINT `FK_AlarmaUmbralId`
-    FOREIGN KEY (`UmbralId`) REFERENCES `Umbral` (`UmbralId`) 
+ALTER TABLE `Alarma` ADD CONSTRAINT `FK_AlarmaUmbralID`
+    FOREIGN KEY (`UmbralID`) REFERENCES `Umbral` (`UmbralID`) 
 	ON DELETE  CASCADE
 	ON UPDATE  CASCADE;
 
-ALTER TABLE `Alarma` ADD CONSTRAINT `FK_AlarmaValorId`
-    FOREIGN KEY (`ValorId`) REFERENCES `ValorMedicion` (`ValorId`) 
+ALTER TABLE `Alarma` ADD CONSTRAINT `FK_AlarmaValorID`
+    FOREIGN KEY (`ValorID`) REFERENCES `ValorMedicion` (`ValorID`) 
 	ON DELETE  CASCADE
 	ON UPDATE  CASCADE;
