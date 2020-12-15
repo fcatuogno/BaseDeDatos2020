@@ -5,6 +5,11 @@ import os
 import sqlobject as SO
 import time
 import json
+import paho.mqtt.client as mqtt
+import paho.mqtt.publish as publish
+import paho.mqtt.subscribe as subscribe
+import threading
+
 
 
 def menu():
@@ -18,15 +23,36 @@ def menu():
     print ('El modulo se encuentra recibiendo y cargando todos los datos correctamente'.center(80, "*"))
     print ('#--------------------------------------------------------------------------------#')
     print ('Seleccione una opcion:')
-    print ("\t1 - Listar todas las lineas")
+    print ("\t1 - Listar todas las mediciones")
     print ("\t2 - Agregar una linea a un tablero existente")
     print ("\t3 - Agregar un tablero a un edificio existente")
     print ("\t4 - Agregar edificio")
+    print ("\t5 - Agregar una medicion a una linea existente")
+    print ("\t6 - Agregar una magnitud a medir")
     print ('#--------------------------------------------------------------------------------#')
 
+#Metodos MQTT
+def Listen(topic):
+    subscribe.callback(on_message, topic, qos=0, userdata=None, hostname="localhost",
+    port=1883, client_id="digi_mqtt_test", keepalive=60, will=None, auth=None, tls=None)
 
 
-class TablaPrueba(SO.SQLObject):
+def on_connect(client, userdata, flags, rc):  # The callback for when the client connects to the broker
+    print("Connected with result code {0}".format(str(rc)))  # Print result of connection attempt
+
+def on_message(client, userdata, msg):  # The callback for when a PUBLISH message is received from the server.
+    print("Message received-> "+ str(msg.payload))  # Print a received msgr
+
+#Clase Serializacion de datos
+class Serializer:
+    def serialize(self):
+        d = dict((c, getattr(self, c)) for c in self.sqlmeta.columns)
+        d['id'] = self.id
+        d['class'] = self.__class__.__name__
+        return d
+
+#Clases ORM
+class TablaPrueba(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)
 
@@ -34,37 +60,38 @@ class TablaPrueba(SO.SQLObject):
     campoDos = SO.StringCol(length=160, varchar=True)
     edificio = SO.ForeignKey('Edificio')
 
-class Edificio(SO.SQLObject):
+class Edificio(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)
     nombre = SO.StringCol(length=25, varchar=True)		
     direccion = SO.StringCol(length=50, varchar=True)
 
-class Tablero(SO.SQLObject):
+class Tablero(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)	
     nombre = SO.StringCol(length=25, varchar=True)		
     edificio = SO.ForeignKey('Edificio')
 
-class Linea(SO.SQLObject):
+class Linea(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)  
     nombre = SO.StringCol(length=25, varchar=True)      
     tablero = SO.ForeignKey('Tablero')
 
-class Unidad(SO.SQLObject):
+class Unidad(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)  
     unidad = SO.StringCol(length=25, varchar=True)   
 
-class Medicion(SO.SQLObject):
+class Medicion(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)
+    nombre = SO.StringCol(length=25, varchar=True)      
     intervalo = SO.IntCol()
     linea = SO.ForeignKey('Linea')
     unidad = SO.ForeignKey('Unidad')
 
-class ValorMedicion(SO.SQLObject):
+class ValorMedicion(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)
 
@@ -72,7 +99,7 @@ class ValorMedicion(SO.SQLObject):
     unixTimeStamp = SO.IntCol()
     medicion = SO.ForeignKey('Medicion')
 
-class Umbral(SO.SQLObject):
+class Umbral(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)
 
@@ -81,7 +108,7 @@ class Umbral(SO.SQLObject):
     umbralSuperior = SO.DecimalCol(size=10, precision=2) 
     unidad =SO.ForeignKey('Unidad')
 
-class Alarma(SO.SQLObject):
+class Alarma(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)
     umbral =SO.ForeignKey('Umbral')
@@ -96,13 +123,36 @@ if __name__ == "__main__":
     SO.sqlhub.processConnection = connection
     # connection.debug = True
 
-    TablaPrueba.dropTable(ifExists=True)
-    TablaPrueba.createTable()
+    #comienzo comunicacion con broker
+    broker = mqtt.Client()
+    broker.on_connect = on_connect  # Define callback function for successful connection
+    broker.on_message = on_message  # Define callback function for receipt of a message
+    broker.connect('localhost', 1883)
+    broker.loop_start()
+
+    # client = mqtt.Client("digi_mqtt_test")  # Create instance of client with client ID “digi_mqtt_test”
+    # client.on_connect = on_connect  # Define callback function for successful connection
+    # client.on_message = on_message  # Define callback function for receipt of a message
+    # # client.connect("m2m.eclipse.org", 1883, 60)  # Connect to (broker, port, keepalive-time)
+    # client.connect('localhost', 1883)
+
+    HiloListen = threading.Thread(target=Listen, args=('AuditorRed/ValoresMedicion',), daemon = True)
+    HiloListen.start()
+
+    #Envio configuracion de mediciones a todos los modulos:
+    for medicion in Medicion.select():
+        d = medicion.serialize()
+        payload=json.dumps(d)
+        print(f'\t\t\t' + payload)
+        broker.publish(topic='AuditorRed/MedicionConf', payload=payload, qos=2)
+#    TablaPrueba.dropTable(ifExists=True)
+#    TablaPrueba.createTable()
 
 #    ValorMedicion(valor=220, unixTimeStamp=time.time(), Medicion = 0)
 #    Edificio(nombre = 'Costanera', direccion = 'Aguero 2340')
 #    Tablero(nombre = 'Motores', edificioID = 1)
 #     TablaPrueba(campoUno = 28, campoDos = 'coso', edificioID = 3)
+
 
 while True:
     menu()
@@ -116,12 +166,10 @@ while True:
                 print(f'\tTablero {tablero.nombre}:')
                 for linea in Linea.select(Linea.q.tablero == tablero):
                     print(f'\t\t {linea.nombre}')
-                    #payload = getattr(linea, json.dumps(dict(linea.sqlmeta.columns)))
-                    payload = linea.sqlmeta.columns
-                    for a in payload:
-                        print(f'\t\t\t' + a)
-
+                    for medicion in Medicion.select(Medicion.q.linea==linea):
+                            print(f'\t\t\tMedicion {medicion.unidad.unidad} - cada {medicion.intervalo} segundos')                           
         input("Presione enter para volver al menu principal")
+
     elif opcion=="2":
 
         print ("Tableros listados:")
@@ -129,25 +177,21 @@ while True:
             print(f'Edificio {edificio.nombre} :')
             for tablero in Tablero.select(Tablero.q.edificio == edificio):
                 print(f'\tID: {tablero.id} - {tablero.nombre}')
-
         tablero_id = input("Ingrese ID del tablero donde se encuentra la linea")
         try: 
             resultado = Tablero.get(int(tablero_id))
             nombre_ingresado=input("Ingrese Nombre de la linea: ")
-
             retorno = Linea(nombre = nombre_ingresado, tableroID = tablero_id)
-            print(f"Se agregó {retorno}")
-            
+            print(f"Se agregó {retorno}")           
         except:
             print("Debe ingresar un ID de Tablero valido")
-
         input("presione enter para volver al menu principal")
 
     elif opcion=="3":
         print ("Edificios listados:")
         for edificio in list(Edificio.select(orderBy=Edificio.q.nombre)):
             print(edificio)           
-        edificio_id = input("Ingrese N° Edificio donde cargar la linea:")     
+        edificio_id = input("Ingrese N° Edificio donde cargar el tablero:")     
         try: 
             resultado = Edificio.get(int(edificio_id))
             nombre_ingresado=input("Ingrese Nombre del tablero: ")
@@ -205,8 +249,61 @@ while True:
             input("presione enter para volver al menu principal")
 
     elif opcion=="5":
+        print ("Lineas registradas")
+        for edificio in Edificio.select(orderBy=Edificio.q.nombre):
+            print(f'Edificio {edificio.nombre}:')
+            for tablero in Tablero.select(Tablero.q.edificio == edificio):
+                print(f'\tTablero {tablero.nombre}:')
+                for linea in Linea.select(Linea.q.tablero == tablero):
+                    print(f'\t\t (ID {linea.id}) - {linea.nombre}')
+        lineaID = input("Ingrese ID de la linea que desea registrar mediciones:")
+        resultado = list(linea.selectBy(id=lineaID))
 
-        break
+        if resultado:
+            print ("Seleccione magnitud que desea registrar mediciones:")
+            for unidad in list(Unidad.select(orderBy=Unidad.q.id)):
+                print(unidad.unidad)           
+            magnitud=input("Magnitud a registrar: ")
+            try:
+                resultado = (Unidad.selectBy(unidad=magnitud).getOne())
+                nombre_ingresado = input("Ingrese nombre para identificar [25 caracter MAX]")
+
+                try:
+                    retorno = Medicion(intervalo= int(intervalo), linea= lineaID, unidad = resultado.id, nombre = nombre_ingresado)
+                    print(f"Se agregó {retorno}")
+
+                    d = retorno.serialize()
+                    payload=json.dumps(d)
+                    print(f'\t\t\t' + payload)
+                    broker.publish(topic='AuditorRed/MedicionConf', payload=payload, qos=2)
+                except:
+                    print(f"El nombre ingresado supera la cantidad de caracteres: {len(nombre_ingresado)}, ;Maximo: 25 caracteres")                
+            except:
+                print(f"{magnitud} no es magnitud válida")             
+            finally:
+                input("presione enter para volver al menu principal")
+        else:
+            print(f"El ID de linea ingresado no es válido")
+            input("presione enter para volver al menu principal")
+    elif opcion=="6":
+        print("Magnitudes registradas")
+        for unidad in list(Unidad.select(orderBy=Unidad.q.id)):
+            print(unidad)           
+        nombre_ingresado=input("Ingrese magnitud que desea registrar:")
+        resultado = list(Unidad.selectBy(unidad=nombre_ingresado))
+
+        if resultado:
+            print(f"{nombre_ingresado} Ya se encuentra regitrado:")
+            for entradas in resultado:
+                print(entradas)
+        else: 
+            retorno = Unidad(unidad = nombre_ingresado)
+            print(f"Se agregó {retorno}")
+        input("presione enter para volver al menu principal")
+
+    elif opcion=="7":
+        #Salgo del programa
+        break        
     else:
         print ("")
         input("No has pulsado ninguna opción correcta...\npulsa una tecla para continuar")
