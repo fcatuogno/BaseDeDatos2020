@@ -58,9 +58,10 @@ CREATE TABLE `Unidad`
 CREATE TABLE `Medicion`
 (
     `MedicionID` INT NOT NULL AUTO_INCREMENT,
+    `Nombre` NVARCHAR(25),
     `LineaID` INT NOT NULL,
     `UnidadID` INT NOT NULL,
-    `Intervalo` INT NOT NULL,
+    `Intervalo` INT NOT NULL DEFAULT 5,
 
     CONSTRAINT `PK_Medicion` PRIMARY KEY  (`MedicionID`)
 );
