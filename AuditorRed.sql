@@ -68,12 +68,12 @@ CREATE TABLE `Medicion`
 
 CREATE TABLE `ValorMedicion`
 (
-    `ValorID` INT NOT NULL AUTO_INCREMENT,
+    `ValorMedicionID` INT NOT NULL AUTO_INCREMENT,
     `Valor` NUMERIC(10,2),
     `UnixTimeStamp` INT,
     `MedicionID` INT NOT NULL,
     
-    CONSTRAINT `PK_ValorMedicion` PRIMARY KEY  (`ValorID`)
+    CONSTRAINT `PK_ValorMedicion` PRIMARY KEY  (`ValorMedicionID`)
 );
 
 CREATE TABLE `Umbral`
@@ -92,7 +92,7 @@ CREATE TABLE `Alarma`
 (
     `AlarmaID` INT NOT NULL AUTO_INCREMENT,
     `UmbralID` INT NOT NULL,
-    `ValorID` INT NOT NULL,    
+    `ValorMedicionID` INT NOT NULL,    
     CONSTRAINT `PK_Alarmas` PRIMARY KEY (`AlarmaID`)
 );
 
@@ -139,7 +139,7 @@ ALTER TABLE `Alarma` ADD CONSTRAINT `FK_AlarmaUmbralID`
 	ON DELETE  CASCADE
 	ON UPDATE  CASCADE;
 
-ALTER TABLE `Alarma` ADD CONSTRAINT `FK_AlarmaValorID`
-    FOREIGN KEY (`ValorID`) REFERENCES `ValorMedicion` (`ValorID`) 
+ALTER TABLE `Alarma` ADD CONSTRAINT `FK_AlarmaValorMedicionID`
+    FOREIGN KEY (`ValorMedicionID`) REFERENCES `ValorMedicion` (`ValorMedicionID`) 
 	ON DELETE  CASCADE
 	ON UPDATE  CASCADE;
