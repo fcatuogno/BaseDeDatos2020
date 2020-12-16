@@ -11,7 +11,6 @@ import paho.mqtt.subscribe as subscribe
 import threading
 
 
-
 def menu():
     """
     Función que limpia la pantalla y muestra nuevamente el menu
@@ -19,8 +18,6 @@ def menu():
     os.system('clear')
     print ('#--------------------------------------------------------------------------------#')
     print ("Modulo Cargador de datos".center(80, " "))
-    print ('#--------------------------------------------------------------------------------#')
-    print ('El modulo se encuentra recibiendo y cargando todos los datos correctamente'.center(80, "*"))
     print ('#--------------------------------------------------------------------------------#')
     print ('Seleccione una opcion:')
     print ("\t1 - Listar todas las mediciones")
@@ -41,7 +38,18 @@ def on_connect(client, userdata, flags, rc):  # The callback for when the client
     print("Connected with result code {0}".format(str(rc)))  # Print result of connection attempt
 
 def on_message(client, userdata, msg):  # The callback for when a PUBLISH message is received from the server.
-    print("Message received-> "+ str(msg.payload))  # Print a received msgr
+    #print("Message received-> "+ str(msg.payload))  # Print a received msgr
+    medicion = json.loads(msg.payload)
+    #print(f"TimeStamp = {medicion['unixTimeStamp']}")
+    #print(f"valor={medicion['valor']}")
+    ValorMedicion(valor=medicion['valor'], unixTimeStamp=medicion['unixTimeStamp'], medicion=medicion['medicionID'])
+    try:
+        ValorMedicion(valor=medicion['valor'], unixTimeStamp=medicion['unixTimeStamp'], medicion=medicion['medicionID'])
+    except:
+    #except Exception as e:
+    #    print (e.message, e.args)
+        print(f"\033[93mSe están recibiendo datos que no estan pudiendo ser cargados\033[0m\n")
+        print(medicion) 
 
 #Clase Serializacion de datos
 class Serializer:
@@ -165,9 +173,9 @@ while True:
             for tablero in Tablero.select(Tablero.q.edificio == edificio):
                 print(f'\tTablero {tablero.nombre}:')
                 for linea in Linea.select(Linea.q.tablero == tablero):
-                    print(f'\t\t {linea.nombre}')
+                    print(f'\t\tLinea {linea.nombre}')
                     for medicion in Medicion.select(Medicion.q.linea==linea):
-                            print(f'\t\t\tMedicion {medicion.unidad.unidad} - cada {medicion.intervalo} segundos')                           
+                            print(f'\t\t\tMedicion {medicion.unidad.unidad} - cada {medicion.intervalo} segundos - ID ({medicion.id})')                           
         input("Presione enter para volver al menu principal")
 
     elif opcion=="2":
@@ -266,7 +274,8 @@ while True:
             magnitud=input("Magnitud a registrar: ")
             try:
                 resultado = (Unidad.selectBy(unidad=magnitud).getOne())
-                nombre_ingresado = input("Ingrese nombre para identificar [25 caracter MAX]")
+                intervalo = input('Ingrese intervalo/periodo de medicion en segundos: ')
+                nombre_ingresado = input("Ingrese nombre para identificar [25 caracter MAX]: ")
 
                 try:
                     retorno = Medicion(intervalo= int(intervalo), linea= lineaID, unidad = resultado.id, nombre = nombre_ingresado)
@@ -274,10 +283,11 @@ while True:
 
                     d = retorno.serialize()
                     payload=json.dumps(d)
-                    print(f'\t\t\t' + payload)
+                    #print(f'\t\t\t' + payload)
                     broker.publish(topic='AuditorRed/MedicionConf', payload=payload, qos=2)
                 except:
                     print(f"El nombre ingresado supera la cantidad de caracteres: {len(nombre_ingresado)}, ;Maximo: 25 caracteres")                
+                    #print (e.message, e.args)
             except:
                 print(f"{magnitud} no es magnitud válida")             
             finally:
