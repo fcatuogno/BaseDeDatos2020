@@ -55,7 +55,7 @@ HiloListen.start()
 
 while True:
     tension = np.random.normal(220,220*0.05)
-    TOD = time.time()
+    TOD = int(time.time())
 
     if(config_actual):
         coso = config_actual['id']
