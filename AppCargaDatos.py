@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 import sqlobject as SO
 import time
 import json
@@ -9,7 +10,6 @@ import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import paho.mqtt.subscribe as subscribe
 import threading
-
 
 def menu():
     """
@@ -26,6 +26,7 @@ def menu():
     print ("\t4 - Agregar edificio")
     print ("\t5 - Agregar una medicion a una linea existente")
     print ("\t6 - Agregar una magnitud a medir")
+    print ("\t7 - Agregar una alarma")
     print ('#--------------------------------------------------------------------------------#')
 
 #Metodos MQTT
@@ -60,13 +61,13 @@ class Serializer:
         return d
 
 #Clases ORM
-class TablaPrueba(SO.SQLObject, Serializer):
-    class sqlmeta:
-        style = SO.MixedCaseStyle(longID=True)
+# class TablaPrueba(SO.SQLObject, Serializer):
+#     class sqlmeta:
+#         style = SO.MixedCaseStyle(longID=True)
 
-    campoUno = SO.IntCol()
-    campoDos = SO.StringCol(length=160, varchar=True)
-    edificio = SO.ForeignKey('Edificio')
+#     campoUno = SO.IntCol(unique=True)
+#     campoDos = SO.StringCol(length=160, varchar=True)
+#     edificio = SO.ForeignKey('Edificio')
 
 class Edificio(SO.SQLObject, Serializer):
     class sqlmeta:
@@ -89,7 +90,7 @@ class Linea(SO.SQLObject, Serializer):
 class Unidad(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)  
-    unidad = SO.StringCol(length=25, varchar=True)   
+    unidad = SO.StringCol(length=25, varchar=True, unique=True)   
 
 class Medicion(SO.SQLObject, Serializer):
     class sqlmeta:
@@ -114,7 +115,7 @@ class Umbral(SO.SQLObject, Serializer):
     severidad = SO.EnumCol(enumValues=('leve', 'grave', 'critico'))
     umbralInferior = SO.DecimalCol(size=10, precision=2)
     umbralSuperior = SO.DecimalCol(size=10, precision=2) 
-    unidad =SO.ForeignKey('Unidad')
+    medicion =SO.ForeignKey('Medicion')
 
 class Alarma(SO.SQLObject, Serializer):
     class sqlmeta:
@@ -185,7 +186,7 @@ while True:
             print(f'Edificio {edificio.nombre} :')
             for tablero in Tablero.select(Tablero.q.edificio == edificio):
                 print(f'\tID: {tablero.id} - {tablero.nombre}')
-        tablero_id = input("Ingrese ID del tablero donde se encuentra la linea")
+        tablero_id = input("Ingrese ID del tablero donde se encuentra la linea: ")
         try: 
             resultado = Tablero.get(int(tablero_id))
             nombre_ingresado=input("Ingrese Nombre de la linea: ")
@@ -199,7 +200,7 @@ while True:
         print ("Edificios listados:")
         for edificio in list(Edificio.select(orderBy=Edificio.q.nombre)):
             print(edificio)           
-        edificio_id = input("Ingrese N° Edificio donde cargar el tablero:")     
+        edificio_id = input("Ingrese N° Edificio donde cargar el tablero: ")     
         try: 
             resultado = Edificio.get(int(edificio_id))
             nombre_ingresado=input("Ingrese Nombre del tablero: ")
@@ -230,7 +231,7 @@ while True:
 
 
     elif opcion=="4":
-        print ("Ingrese nombre del edificio a agregar:")
+        print ("Ingrese nombre del edificio a agregar: ")
         nombre_ingresado=input()
 
         #Verifico que no exista en la DB:
@@ -240,9 +241,7 @@ while True:
             print(f"Se encontraron los siguientes registros con nombre {nombre_ingresado}:")
             for entradas in resultado:
                 print(entradas)
-            print(f"Desea continua con la carga del edificio {nombre_ingresado}?")
-            print("y/n")
-            respuesta = input()
+            respuesta = input(f"Desea continua con la carga del edificio {nombre_ingresado}? [y/n]\n")
             if respuesta=="y":
                 direccion_ingresada=input("Ingrese direccion edificio:")
                 retorno = Edificio(nombre = nombre_ingresado, direccion = direccion_ingresada)
@@ -264,7 +263,7 @@ while True:
                 print(f'\tTablero {tablero.nombre}:')
                 for linea in Linea.select(Linea.q.tablero == tablero):
                     print(f'\t\t (ID {linea.id}) - {linea.nombre}')
-        lineaID = input("Ingrese ID de la linea que desea registrar mediciones:")
+        lineaID = input("Ingrese ID de la linea que desea registrar mediciones: ")
         resultado = list(linea.selectBy(id=lineaID))
 
         if resultado:
@@ -299,7 +298,7 @@ while True:
         print("Magnitudes registradas")
         for unidad in list(Unidad.select(orderBy=Unidad.q.id)):
             print(unidad)           
-        nombre_ingresado=input("Ingrese magnitud que desea registrar:")
+        nombre_ingresado=input("Ingrese magnitud que desea registrar: ")
         resultado = list(Unidad.selectBy(unidad=nombre_ingresado))
 
         if resultado:
@@ -310,8 +309,49 @@ while True:
             retorno = Unidad(unidad = nombre_ingresado)
             print(f"Se agregó {retorno}")
         input("presione enter para volver al menu principal")
-
     elif opcion=="7":
+        print('------------------------')
+        print('Mediciones configuradas:')
+        print('------------------------')
+        print('ID\tLinea\t\tUnidad')
+        for medicion in Medicion.select(orderBy=Medicion.q.nombre):
+            print(f'{medicion.id}\t{medicion.linea.nombre}\t{medicion.unidad.unidad}')
+        print('-----------------------')
+        print('\nAlarmas configuradas:')
+        print('-----------------------')
+        print('Linea\t\t\tUnidad\tSeveridad\tUmbral inferior\tUmbral superior')
+        for alarma in Umbral.select(orderBy=Umbral.q.medicion):
+            print(f'{alarma.medicion.linea.nombre}\t{alarma.medicion.unidad.unidad}\t{alarma.severidad}\t\t{alarma.umbralInferior}\t\t{alarma.umbralSuperior}')
+        medicion = input("\nIngrese ID Medicion sobre la cual quiere establecer una alarma: ")
+
+        try:
+            resultado = (Medicion.selectBy(id=medicion).getOne())
+            limite_inferior=input("ingrese Umbral inferior de la alarma: ")
+            limite_superior=input("ingrese Umbral inferior de la alarma: ")
+            
+            if ((limite_superior.isnumeric() or not limite_superior) and (limite_inferior.isnumeric() or not limite_inferior)):
+                if not limite_inferior:
+                    limite_inferior = None;
+                if not limite_superior:
+                    limite_superior = None;        
+                print("Severidades:")
+                print(Umbral.q.severidad.column.enumValues)
+                severidad=input("Ingrese Severidad de la alarma: ")
+                try: 
+                    resultado = Umbral(severidad=severidad, umbralInferior=limite_inferior, umbralSuperior=limite_superior, medicion=medicion)
+                    print(f"Se agregó {resultado}")
+                except: 
+                    print(f"No se pudo registrar alarma: ")             
+                    print(sys.exc_info()[1])
+            else:
+                print("Los umbrales deben ser valores numericos")
+            input("presione enter para volver al menu principal")
+        except: 
+            print(f"el ID ingresado no se corresponde a una Medicion registrada: ")             
+            print(sys.exc_info()[1])
+            input("presione enter para volver al menu principal")
+
+    elif opcion=="8":
         #Salgo del programa
         break        
     else:
