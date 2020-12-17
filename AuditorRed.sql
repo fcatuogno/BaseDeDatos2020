@@ -90,7 +90,6 @@ CREATE TABLE `Umbral`
     `UmbralSuperior` NUMERIC(10,2),
      
     CONSTRAINT `PK_Umbral` PRIMARY KEY (`UmbralID`),
-    CONSTRAINT `UNIQUE_MedicionSeveridad` UNIQUE (`MedicionID`, `Severidad`)
 );
 
 CREATE TABLE `Alarma`
