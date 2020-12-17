@@ -43,9 +43,15 @@ def on_message(client, userdata, msg):  # The callback for when a PUBLISH messag
     medicion = json.loads(msg.payload)
     #print(f"TimeStamp = {medicion['unixTimeStamp']}")
     #print(f"valor={medicion['valor']}")
-    ValorMedicion(valor=medicion['valor'], unixTimeStamp=medicion['unixTimeStamp'], medicion=medicion['medicionID'])
     try:
-        ValorMedicion(valor=medicion['valor'], unixTimeStamp=medicion['unixTimeStamp'], medicion=medicion['medicionID'])
+        valor = ValorMedicion(valor=medicion['valor'], unixTimeStamp=medicion['unixTimeStamp'], medicion=medicion['medicionID'])
+        for alarma in Umbral.select():
+            if (valor.valor > alarma.umbralInferior) and (valor.valor < alarma.umbralSuperior):
+                try:
+                    Alarma(umbral=alarma.id,valorMedicion=valor.id)
+                except:
+                    print("Error al registrar alarmas")             
+                    print(sys.exc_info()[1])
     except:
     #except Exception as e:
     #    print (e.message, e.args)
@@ -121,7 +127,7 @@ class Alarma(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)
     umbral =SO.ForeignKey('Umbral')
-    valor =SO.ForeignKey('ValorMedicion')
+    valorMedicion =SO.ForeignKey('ValorMedicion')
 
 
 if __name__ == "__main__":
@@ -181,53 +187,44 @@ while True:
 
     elif opcion=="2":
 
-        print ("Tableros listados:")
+        print ("Tableros Cargados:")
         for edificio in Edificio.select(orderBy=Edificio.q.nombre):
             print(f'Edificio {edificio.nombre} :')
             for tablero in Tablero.select(Tablero.q.edificio == edificio):
                 print(f'\tID: {tablero.id} - {tablero.nombre}')
         tablero_id = input("Ingrese ID del tablero donde se encuentra la linea: ")
         try: 
-            resultado = Tablero.get(int(tablero_id))
+            Tablero.get(int(tablero_id))
             nombre_ingresado=input("Ingrese Nombre de la linea: ")
-            retorno = Linea(nombre = nombre_ingresado, tableroID = tablero_id)
-            print(f"Se agregó {retorno}")           
+            try:
+                retorno = Linea(nombre = nombre_ingresado, tableroID = tablero_id)
+                print(f"Se agregó {retorno}")
+            except:
+                print(f"No se pudo cargar Linea: ")             
+                print(sys.exc_info()[1])           
         except:
             print("Debe ingresar un ID de Tablero valido")
-        input("presione enter para volver al menu principal")
+        finally:
+            input("presione enter para volver al menu principal")
 
     elif opcion=="3":
         print ("Edificios listados:")
         for edificio in list(Edificio.select(orderBy=Edificio.q.nombre)):
             print(edificio)           
-        edificio_id = input("Ingrese N° Edificio donde cargar el tablero: ")     
-        try: 
-            resultado = Edificio.get(int(edificio_id))
-            nombre_ingresado=input("Ingrese Nombre del tablero: ")
-
-            #Verifico que no exista en la DB:
-            resultado = list(Tablero.selectBy(nombre=nombre_ingresado))
-
-            if resultado:
-                print(f"Se encontraron los siguientes registros con nombre {nombre_ingresado}:")
-                for entradas in resultado:
-                    print(entradas)
-                print(f"Desea continua con la carga del Tablero {nombre_ingresado}?")
-                print("y/n")
-                respuesta = input()
-                if respuesta=="y":
-                    retorno = Tablero(nombre = nombre_ingresado, edificioID = edificio_id)
-                    print(f"Se agregó {retorno}")
-                else:
-                    input("Se canceló carga, presione enter para volver al menu principal")
-            else:
+        edificio_id = input("Ingrese N° Edificio donde cargar el tablero: ")
+        try:
+            Tablero.get(int(edificio_id))
+            nombre_ingresado=input("Ingrese Nombre del tablero: ")            
+            try:
                 retorno = Tablero(nombre = nombre_ingresado, edificioID = edificio_id)
                 print(f"Se agregó {retorno}")
+            except:
+                print(f"No se pudo cargar Tablero: ")             
+                print(sys.exc_info()[1])
         except:
-            print("Debe ingresar un N° de edificio valido")
-
-        input("presione enter para volver al menu principal")
-
+            print("Debe ingresar un ID de Edificio valido")
+        finally:
+            input("presione enter para volver al menu principal")
 
 
     elif opcion=="4":
@@ -243,10 +240,15 @@ while True:
                 print(entradas)
             respuesta = input(f"Desea continua con la carga del edificio {nombre_ingresado}? [y/n]\n")
             if respuesta=="y":
-                direccion_ingresada=input("Ingrese direccion edificio:")
-                retorno = Edificio(nombre = nombre_ingresado, direccion = direccion_ingresada)
-                print(f"Se agregó {retorno}")
-                input("presione enter para volver al menu principal")
+                direccion_ingresada=input("Ingrese direccion edificio: ")
+                try:
+                    retorno = Edificio(nombre = nombre_ingresado, direccion = direccion_ingresada)
+                    print(f"Se agregó {retorno}")
+                    input("presione enter para volver al menu principal")
+                except:
+                    print(f"No se pudo cargar Edificio: ")             
+                    print(sys.exc_info()[1])
+                    input("presione enter para volver al menu principal")
             else:
                 input("Se canceló carga, presione enter para volver al menu principal")
         else:

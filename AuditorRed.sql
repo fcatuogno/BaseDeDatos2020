@@ -131,7 +131,7 @@ ALTER TABLE `Medicion` ADD CONSTRAINT `FK_MedicionLineaID`
 	ON DELETE  CASCADE
 	ON UPDATE  CASCADE;
 
-ALTER TABLE `ValorMedicion` ADD CONSTRAINT `FK_ValorMedicioMedicionID`
+ALTER TABLE `ValorMedicion` ADD CONSTRAINT `FK_ValorMedicionMedicionID`
     FOREIGN KEY (`MedicionID`) REFERENCES `Medicion` (`MedicionID`) 
 	ON DELETE  CASCADE
 	ON UPDATE  CASCADE;

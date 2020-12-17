@@ -8,10 +8,10 @@ import paho.mqtt.subscribe as subscribe
 import json
 import threading
 
-LINEA = 1 #HORNOS - LUMINARIAS - LUMINARIAS 1° PISO
+LINEA = 1 
 __MEDICION_TENSION__ = 1
 __MEDICION_CORRIENTE__ = 2
-__MEDICION_ID__ = 1
+__MEDICION_ID__ = 1  #Modificar este para prueba
 config_actual={}
 
 def Listen(topic):
