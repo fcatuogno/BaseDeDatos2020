@@ -28,7 +28,8 @@ CREATE TABLE `Edificio`
     `EdificioID` INT NOT NULL AUTO_INCREMENT,
     `Nombre` NVARCHAR(25),
     `Direccion` NVARCHAR(50),
-    CONSTRAINT `PK_Edificio` PRIMARY KEY  (`EdificioID`)
+    CONSTRAINT `PK_Edificio` PRIMARY KEY  (`EdificioID`),
+    CONSTRAINT `UNIQUE_NombreDireccion` UNIQUE (`Nombre`, `Direccion`)
 );
 
 CREATE TABLE `Tablero`
@@ -36,7 +37,8 @@ CREATE TABLE `Tablero`
     `TableroID` INT NOT NULL AUTO_INCREMENT,
     `Nombre` NVARCHAR(25) ,
 	`EdificioID` INT NOT NULL,
-    CONSTRAINT `PK_Tablero` PRIMARY KEY  (`TableroID`)
+    CONSTRAINT `PK_Tablero` PRIMARY KEY  (`TableroID`),
+    CONSTRAINT `UNIQUE_TableroEdificio` UNIQUE (`Nombre`, `EdificioID`)
 );
 
 CREATE TABLE `Linea`
@@ -44,13 +46,14 @@ CREATE TABLE `Linea`
     `LineaID` INT NOT NULL AUTO_INCREMENT,
     `Nombre` NVARCHAR(25),
     `TableroID` INT NOT NULL,	
-    CONSTRAINT `PK_Linea` PRIMARY KEY  (`LineaID`)
+    CONSTRAINT `PK_Linea` PRIMARY KEY  (`LineaID`),
+    CONSTRAINT `UNIQUE_LineaTablero` UNIQUE (`Nombre`, `TableroID`)
 );
 
 CREATE TABLE `Unidad`
 (
     `UnidadID` INT NOT NULL AUTO_INCREMENT,
-    `Unidad` NVARCHAR(25),
+    `Unidad` NVARCHAR(25) UNIQUE,
 
     CONSTRAINT `PK_Unidad` PRIMARY KEY  (`UnidadID`)
 );
@@ -63,7 +66,8 @@ CREATE TABLE `Medicion`
     `UnidadID` INT NOT NULL,
     `Intervalo` INT NOT NULL DEFAULT 5,
 
-    CONSTRAINT `PK_Medicion` PRIMARY KEY  (`MedicionID`)
+    CONSTRAINT `PK_Medicion` PRIMARY KEY  (`MedicionID`),
+    CONSTRAINT `UNIQUE_LineaUnidad` UNIQUE (`LineaID`, `UnidadID`)
 );
 
 CREATE TABLE `ValorMedicion`
@@ -79,13 +83,14 @@ CREATE TABLE `ValorMedicion`
 CREATE TABLE `Umbral`
 (
     `UmbralID` INT NOT NULL AUTO_INCREMENT,
-    `UnidadID` INT NOT NULL,
+    `MedicionID` INT NOT NULL,
     `Severidad` ENUM('leve', 'grave', 'critico'),
 
     `UmbralInferior` NUMERIC(10,2),
     `UmbralSuperior` NUMERIC(10,2),
      
-    CONSTRAINT `PK_Umbral` PRIMARY KEY (`UmbralID`)
+    CONSTRAINT `PK_Umbral` PRIMARY KEY (`UmbralID`),
+    CONSTRAINT `UNIQUE_MedicionSeveridad` UNIQUE (`MedicionID`, `Severidad`)
 );
 
 CREATE TABLE `Alarma`
@@ -129,8 +134,8 @@ ALTER TABLE `ValorMedicion` ADD CONSTRAINT `FK_ValorMedicioMedicionID`
 	ON DELETE  CASCADE
 	ON UPDATE  CASCADE;
 
-ALTER TABLE `Umbral` ADD CONSTRAINT `FK_UmbralUnidadID`
-    FOREIGN KEY (`UnidadID`) REFERENCES `Unidad` (`UnidadID`) 
+ALTER TABLE `Umbral` ADD CONSTRAINT `FK_UmbralMedicionID`
+    FOREIGN KEY (`MedicionID`) REFERENCES `Medicion` (`MedicionID`) 
 	ON DELETE  CASCADE
 	ON UPDATE  CASCADE;
 
