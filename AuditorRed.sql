@@ -1,7 +1,7 @@
 
 /*******************************************************************************
    AuditorRed Database - Version 1.0
-   Script: AuditorRed_MySql.sql
+   Script: AuditorRed.sql
    Description: Creates AuditorRed database.
    DB Server: MySql
    Author: Fabian Catuogno
