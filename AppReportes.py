@@ -3,7 +3,10 @@
 
 import os
 import sys
+import datetime
 import MySQLdb
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 class AuditorRed:
     '''
@@ -42,43 +45,119 @@ class AuditorRed:
             return False
         return True
 
-    def Listar_mediciones(self):
+    def Listar_mediciones(self, edificio='%', tablero='%', linea='%'):
         curEdif = self._conn.cursor()
-        curEdif.execute('SELECT * FROM Edificio')
-        for EdificioID, Nombre, Direccion in curEdif.fetchall():
-            print("{} - [{}]\t".format(Nombre, Direccion ))
+        curEdif.execute('SELECT * FROM Edificio WHERE Nombre LIKE %s',(edificio,))
+        Edificios = curEdif.fetchall()
+        curEdif.close()
+        for EdificioID, Nombre, Direccion in Edificios: 
+            print("Edificio {} - [{}]\t".format(Nombre, Direccion ))
             curTablero = self._conn.cursor()
-            curTablero.execute('SELECT Nombre FROM Tablero WHERE Tablero.EdificioID = EdificioID')
-            for Nombre in curTablero.fetchall():
-                print("\t{}".format(Nombre))
-
+            curTablero.execute('SELECT Nombre, TableroID FROM Tablero WHERE Tablero.EdificioID = %s AND Tablero.Nombre LIKE %s',(EdificioID,tablero))
+            tableros = curTablero.fetchall()
+            curTablero.close()
+            for Nombre, TableroID in tableros:
+                print("\tTablero {}".format(Nombre))
+                cur = self._conn.cursor()
+                cur.execute('SELECT Nombre, LineaID FROM Linea WHERE Linea.TableroID = %s AND Linea.Nombre LIKE %s',(TableroID,linea))
+                lineas =  cur.fetchall()
+                cur.close()
+                for Nombre, LineaID in lineas:
+                    print('\t\tLinea {}'.format(Nombre))
+                    cur = self._conn.cursor()
+                    cur.execute('''SELECT Medicion.MedicionID, Medicion.Nombre, Unidad.Unidad FROM Medicion
+                        JOIN Unidad ON (Medicion.UnidadID = Unidad.UnidadID)
+                        WHERE Medicion.LineaID = %s''',(LineaID,))
+                    lineas =  cur.fetchall()
+                    cur.close()
+                    for ID, Nombre, Unidad in lineas:
+                        print('\t\t\t(ID {}) - {} [{}]'.format(ID, Nombre, Unidad))
+            
 
 
     def Listar_alarmas(self, severidad = '%'):
         if not self._verifica_conexion():
             return False
-        error = False
         try:
             cur = self._conn.cursor()
-            cur.execute('''SELECT Medicion.Nombre AS 'Medicion', ValorMedicion.valor, Unidad.Unidad, Umbral.Severidad 
+            cur.execute('''SELECT Medicion.Nombre AS 'Medicion', ValorMedicion.Valor, Unidad.Unidad, Umbral.Severidad 
                     FROM Alarma LEFT JOIN ValorMedicion ON (Alarma.ValorMedicionID = ValorMedicion.ValorMedicionID)
                     JOIN Umbral ON (Alarma.UmbralID = Umbral.UmbralID)
                     JOIN Medicion ON (ValorMedicion.MedicionID = Medicion.MedicionID)
                     JOIN Unidad ON (Medicion.UnidadID = Unidad.UnidadID)
-                    WHERE Umbral.Severidad LIKE %s;
+                    WHERE Umbral.Severidad LIKE %s
                 ''',(severidad, ))
 
             print("{}\t\t\t{}\t{}\t{}".format('Medicion', 'Valor','Unidad', 'Severidad'))
             for Medicion, Valor, Unidad, Severidad in cur.fetchall():
                 print("{}\t{}\t{}\t{}".format(Medicion, Valor, Unidad, Severidad))
+            ret = True
         except:
             print(sys.exc_info()[1])
-            error = True
+            ret = False
         finally:
             cur.close()
-        return error
+        return ret
+
+
+    def Graficar_medicion(self, medicionid):
+        colors={'leve':'tab:olive', 'grave':'orange', 'critico':'red'}
+        valores = []
+        diahora = []
+        alarmas = []
+        diahoraA = []
+        plt.figure()
+        try:
+            cur = self._conn.cursor()
+            cur.execute(''' SELECT ValorMedicion.Valor, ValorMedicion.UnixTimeStamp, Alarma.ValorMedicionID, Umbral.Severidad
+                        FROM ValorMedicion JOIN Medicion ON (ValorMedicion.MedicionID = Medicion.MedicionID)
+                        LEFT JOIN Alarma ON (ValorMedicion.ValorMedicionID = Alarma.ValorMedicionID)
+                        LEFT JOIN Umbral ON (Alarma.UmbralID = Umbral.UmbralID)
+                        WHERE Medicion.MedicionID = %s;
+                        ''', (medicionid,))
+
+            for Valor, UnixTimeStamp, Alarma, Severidad in cur.fetchall():
+                valores.append(Valor)
+                diahora.append(datetime.datetime.fromtimestamp(UnixTimeStamp))
+                if Alarma:
+                    plt.plot(datetime.datetime.fromtimestamp(UnixTimeStamp),Valor,'x',color = colors[Severidad])
+            plt.plot(diahora,valores)
+        except:
+            print(sys.exc_info()[1])
+            ret = False
+        finally:
+            cur.close()
+
+        try:
+            cur=self._conn.cursor()
+            cur.execute('''SELECT Medicion.Nombre, Unidad.Unidad, Umbral.UmbralSuperior, Umbral.UmbralInferior, Umbral.Severidad
+                            FROM Medicion JOIN Unidad ON (Medicion.UnidadID = Unidad.UnidadID)
+                            JOIN Umbral ON (Umbral.MedicionID = Medicion.MedicionID)
+                            WHERE Medicion.MedicionID = %s
+                        ''',(medicionid,))
+
+            referencias=cur.fetchall()
+
+            for nombre, unidad, umbral_inf, umbral_sup, severidad in referencias:
+                print(severidad)
+                plt.axhline(umbral_inf, ls='--', c=colors[severidad])
+                plt.axhline(umbral_sup, ls='--', c=colors[severidad])
+            #plt.legend()
+            plt.title(nombre)
+            plt.ylabel(unidad)
+        except:
+            print(sys.exc_info()[1])
+            ret = False
+        finally:
+            cur.close()
+            plt.show()
+            return ret
+
+
 
 if __name__ == '__main__':
+
+    mpl.use('TkAgg')
 
     auditor = AuditorRed(host='localhost',
                                  user='guest',
@@ -87,5 +166,7 @@ if __name__ == '__main__':
 
     auditor.conectar()
 
-    auditor.Listar_mediciones()
+    #auditor.Listar_alarmas()
+    #auditor.Listar_mediciones()
+    auditor.Graficar_medicion(medicionid = 1)
 
