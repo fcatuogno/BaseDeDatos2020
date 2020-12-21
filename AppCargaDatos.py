@@ -103,7 +103,7 @@ class Unidad(SO.SQLObject, Serializer):
 class Medicion(SO.SQLObject, Serializer):
     class sqlmeta:
         style = SO.MixedCaseStyle(longID=True)
-    nombre = SO.StringCol(length=25, varchar=True)      
+    nombre = SO.StringCol(length=40, varchar=True)      
     intervalo = SO.IntCol()
     linea = SO.ForeignKey('Linea')
     unidad = SO.ForeignKey('Unidad')

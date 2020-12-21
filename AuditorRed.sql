@@ -61,7 +61,7 @@ CREATE TABLE `Unidad`
 CREATE TABLE `Medicion`
 (
     `MedicionID` INT NOT NULL AUTO_INCREMENT,
-    `Nombre` NVARCHAR(25),
+    `Nombre` NVARCHAR(40),
     `LineaID` INT NOT NULL,
     `UnidadID` INT NOT NULL,
     `Intervalo` INT NOT NULL DEFAULT 5,
