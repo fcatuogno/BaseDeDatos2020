@@ -3,6 +3,7 @@
 
 import os
 import sys
+import time
 from datetime import datetime
 import MySQLdb
 import matplotlib as mpl
@@ -90,7 +91,7 @@ class AuditorRed:
 
             print("{}\t\t\t{}\t{}\t{}\t{}".format('Medicion', 'Valor','Unidad', 'Severidad', 'Fecha-Hora'))
             for Medicion, Valor, Unidad, Severidad, UnixTimeStamp in cur.fetchall():
-                print("{}\t{}\t{}\t{}\t{}".format(Medicion, Valor, Unidad, Severidad, datetime.datetime.fromtimestamp(UnixTimeStamp)))
+                print("{}\t{}\t{}\t{}\t{}".format(Medicion, Valor, Unidad, Severidad, datetime.fromtimestamp(UnixTimeStamp)))
             ret = True
         except:
             print(sys.exc_info()[1])
@@ -100,7 +101,7 @@ class AuditorRed:
         return ret
 
 
-    def Graficar_medicion(self, medicionid): #Agregar Fechas
+    def Graficar_medicion(self, medicionid, since=0, until=time.time()):
         colors={'leve':'tab:olive', 'grave':'orange', 'critico':'red'}
         valores = []
         diahora = []
@@ -115,8 +116,9 @@ class AuditorRed:
                         LEFT JOIN Alarma ON (ValorMedicion.ValorMedicionID = Alarma.ValorMedicionID)
                         LEFT JOIN Umbral ON (Alarma.UmbralID = Umbral.UmbralID)
                         WHERE Medicion.MedicionID = %s
+                        AND ValorMedicion.UnixTimeStamp BETWEEN %s AND %s
                         ORDER BY ValorMedicion.UnixTimeStamp;
-                        ''', (medicionid,))
+                        ''', (medicionid, since, until))
 
             for Valor, UnixTimeStamp, Alarma, Severidad in cur.fetchall():
                 valores.append(Valor)
@@ -135,15 +137,17 @@ class AuditorRed:
             cur=self._conn.cursor()
             cur.execute('''SELECT Medicion.Nombre, Unidad.Unidad, Umbral.UmbralSuperior, Umbral.UmbralInferior, Umbral.Severidad
                             FROM Medicion JOIN Unidad ON (Medicion.UnidadID = Unidad.UnidadID)
-                            JOIN Umbral ON (Umbral.MedicionID = Medicion.MedicionID)
+                            LEFT JOIN Umbral ON (Umbral.MedicionID = Medicion.MedicionID)
                             WHERE Medicion.MedicionID = %s
                         ''',(medicionid,))
 
             referencias=cur.fetchall()
 
             for nombre, unidad, umbral_inf, umbral_sup, severidad in referencias:
-                plt.axhline(umbral_inf, ls='--', c=colors[severidad])
-                plt.axhline(umbral_sup, ls='--', c=colors[severidad])
+                if(umbral_inf):
+                    plt.axhline(umbral_inf, ls='--', c=colors[severidad])
+                if(umbral_sup):
+                    plt.axhline(umbral_sup, ls='--', c=colors[severidad])
             #plt.legend()
             plt.title(nombre)
             plt.ylabel(unidad)
@@ -170,7 +174,7 @@ class AuditorRed:
                             JOIN Linea ON (Linea.TableroID = Tablero.TableroID) 
                             JOIN Medicion ON (Medicion.LineaID = Linea.LineaID) 
                             JOIN ValorMedicion ON (ValorMedicion.MedicionID = Medicion.MedicionID)
-                            LEFT JOIN Alarma ON (Alarma.ValorMedicionID = ValorMedicion.ValorMedicionID)
+                            LEFT JOIN Alarma ON (ValorMedicion.ValorMedicionID = Alarma.ValorMedicionID )
                             WHERE Edificio.Nombre LIKE %s
                             AND Tablero.Nombre LIKE %s
                             AND Linea.Nombre LIKE %s
@@ -198,8 +202,8 @@ if __name__ == '__main__':
 
     auditor.conectar()
 
-    #auditor.Listar_alarmas()
-    #auditor.Listar_mediciones()
-    #auditor.Graficar_medicion(medicionid = 1)
-    auditor.Reporte(Edificio='coso')
+    auditor.Listar_alarmas()
+    auditor.Listar_mediciones()
+    auditor.Graficar_medicion(medicionid = 2)
+    auditor.Reporte()
 

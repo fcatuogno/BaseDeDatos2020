@@ -47,12 +47,27 @@ def on_message(client, userdata, msg):  # The callback for when a PUBLISH messag
     try:
         valor = ValorMedicion(valor=medicion['valor'], unixTimeStamp=medicion['unixTimeStamp'], medicion=medicion['medicionID'])
         for alarma in Umbral.select():
-            if (valor.valor > alarma.umbralInferior) and (valor.valor < alarma.umbralSuperior):
+            if( alarma.umbralInferior is None and alarma.umbralSuperior is None):
+                print(f"\033[93mHay alarmas mal configuradas: Umbrales no definidos\033[0m\n")
+            elif (alarma.umbralInferior is None and (valor.valor < alarma.umbralSuperior)):
                 try:
                     Alarma(umbral=alarma.id,valorMedicion=valor.id)
                 except:
                     print("Error al registrar alarmas")             
                     print(sys.exc_info()[1])
+            elif (alarma.umbralSuperior is None and (valor.valor > alarma.umbralInferior)):
+                try:
+                    Alarma(umbral=alarma.id,valorMedicion=valor.id)
+                except:
+                    print("Error al registrar alarmas")             
+                    print(sys.exc_info()[1])
+            else:
+                if (valor.valor > alarma.umbralInferior) and (valor.valor < alarma.umbralSuperior):
+                    try:
+                        Alarma(umbral=alarma.id,valorMedicion=valor.id)
+                    except: 
+                        print("Error al registrar alarmas")             
+                        print(sys.exc_info()[1])
     except:
         print(f"\033[93mSe están recibiendo datos que no estan pudiendo ser cargados\033[0m\n")
         print(medicion)
