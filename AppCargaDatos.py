@@ -27,6 +27,7 @@ def menu():
     print ("\t5 - Agregar una medicion a una linea existente")
     print ("\t6 - Agregar una magnitud a medir")
     print ("\t7 - Agregar una alarma")
+    print ("\t8 - Modificar intervalo de medicion")    
     print ('#--------------------------------------------------------------------------------#')
 
 #Metodos MQTT
@@ -53,10 +54,11 @@ def on_message(client, userdata, msg):  # The callback for when a PUBLISH messag
                     print("Error al registrar alarmas")             
                     print(sys.exc_info()[1])
     except:
-    #except Exception as e:
-    #    print (e.message, e.args)
         print(f"\033[93mSe están recibiendo datos que no estan pudiendo ser cargados\033[0m\n")
-        print(medicion) 
+        print(medicion)
+        print(sys.exc_info()[1])
+
+
 
 #Clase Serializacion de datos
 class Serializer:
@@ -352,8 +354,24 @@ while True:
             print(f"el ID ingresado no se corresponde a una Medicion registrada: ")             
             print(sys.exc_info()[1])
             input("presione enter para volver al menu principal")
-
     elif opcion=="8":
+            id=input('Ingrese ID Medicion a modificar: ')
+            try:
+                resultado = (Medicion.selectBy(id=id).getOne())
+                print(f"{resultado}")
+                periodo = input('Ingrese nuevo intervalo de medicion: ')
+                resultado.set(intervalo = int(periodo))
+                print(f"Se modificó {resultado}")
+                d = resultado.serialize()
+                payload=json.dumps(d)
+                #print(f'\t\t\t' + payload)
+                broker.publish(topic='AuditorRed/MedicionConf', payload=payload, qos=2)
+            except:
+                print(sys.exc_info()[1])
+            finally:
+                input("presione enter para volver al menu principal")
+
+    elif opcion=="9":
         #Salgo del programa
         break        
     else:
