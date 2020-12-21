@@ -165,27 +165,30 @@ class AuditorRed:
             cur.execute('''SELECT Edificio.Nombre AS 'Edificio',
                             Tablero.Nombre AS 'Tablero',
                             Linea.Nombre AS 'Linea',
-                            COUNT(ValorMedicion.MedicionID) AS 'Muestras',
-                            COUNT(Alarma.ValorMedicionID) AS 'Alarmas',
+                            Medicion.Nombre AS 'Medicion',
+                            COUNT(DISTINCT ValorMedicion.ValorMedicionID) AS 'Muestras',
+                            COUNT(DISTINCT Alarma.AlarmaID) AS 'Alarmas',
+                            COUNT(DISTINCT Umbral.UmbralID) AS 'Umbrales',
                             MIN(ValorMedicion.UnixTimeStamp),
                             MAX(ValorMedicion.UnixTimeStamp)
                             FROM Edificio
                             JOIN Tablero ON (Tablero.EdificioID = Edificio.EdificioID)
                             JOIN Linea ON (Linea.TableroID = Tablero.TableroID) 
                             JOIN Medicion ON (Medicion.LineaID = Linea.LineaID) 
+                            LEFT JOIN Umbral ON (Medicion.MedicionID = Umbral.MedicionID)
                             JOIN ValorMedicion ON (ValorMedicion.MedicionID = Medicion.MedicionID)
-                            LEFT JOIN Alarma ON (ValorMedicion.ValorMedicionID = Alarma.ValorMedicionID )
+                            LEFT JOIN Alarma ON (ValorMedicion.ValorMedicionID = Alarma.ValorMedicionID)
                             WHERE Edificio.Nombre LIKE %s
                             AND Tablero.Nombre LIKE %s
                             AND Linea.Nombre LIKE %s
-                            GROUP BY Medicion.LineaId;
-                        ''',(Edificio,Tablero,Linea))
+                            GROUP BY Medicion.MedicionID
+                            ''',(Edificio,Tablero,Linea))
 
-            print("{}\t{}\t\t{}\t\t\t{}\t{}\t\t{}\t{}".format('Edificio', 'Tablero','Linea', 'Muestras', 'Alarmas', 'Muestra más antigua', 'Muestra más reciente'))
-            for Edificio, Tablero, Linea, Muestras, Alarmas, Oldest, Newest in cur.fetchall():
-                print("{}\t\t{}\t{}\t{}\t\t{}\t\t{}\t{}".format(Edificio, Tablero, Linea, Muestras, Alarmas, datetime.fromtimestamp(Oldest), datetime.fromtimestamp(Newest)))
+            print("{}\t{}\t\t{}\t\t\t{}\t\t\t{}\t{}\t{}\t{}\t{}".format('Edificio', 'Tablero','Linea','Medicion','Muestras', 'Alarmas','Umbrales', 'Muestra más antigua', 'Muestra más reciente'))
+            for Edificio, Tablero, Linea, Medicion, Muestras, Alarmas, Umbrales, Oldest, Newest in cur.fetchall():
+                print("{}\t\t{}\t{}\t{}\t{}\t\t{}\t{}\t\t{}\t{}".format(Edificio, Tablero, Linea, Medicion, Muestras, Alarmas,Umbrales, datetime.fromtimestamp(Oldest), datetime.fromtimestamp(Newest)))
         except:
-            print('Se chotió')
+            print(sys.exc_info()[1])
         finally:
             cur.close()
 
@@ -202,8 +205,8 @@ if __name__ == '__main__':
 
     auditor.conectar()
 
-    auditor.Listar_alarmas()
-    auditor.Listar_mediciones()
-    auditor.Graficar_medicion(medicionid = 2)
+    #auditor.Listar_alarmas()
+    #auditor.Listar_mediciones()
+    #auditor.Graficar_medicion(medicionid = 2)
     auditor.Reporte()
 
