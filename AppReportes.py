@@ -3,7 +3,7 @@
 
 import os
 import sys
-import datetime
+from datetime import datetime
 import MySQLdb
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -80,7 +80,7 @@ class AuditorRed:
             return False
         try:
             cur = self._conn.cursor()
-            cur.execute('''SELECT Medicion.Nombre AS 'Medicion', ValorMedicion.Valor, Unidad.Unidad, Umbral.Severidad 
+            cur.execute('''SELECT Medicion.Nombre AS 'Medicion', ValorMedicion.Valor, Unidad.Unidad, Umbral.Severidad, ValorMedicion.UnixTimeStamp 
                     FROM Alarma LEFT JOIN ValorMedicion ON (Alarma.ValorMedicionID = ValorMedicion.ValorMedicionID)
                     JOIN Umbral ON (Alarma.UmbralID = Umbral.UmbralID)
                     JOIN Medicion ON (ValorMedicion.MedicionID = Medicion.MedicionID)
@@ -88,9 +88,9 @@ class AuditorRed:
                     WHERE Umbral.Severidad LIKE %s
                 ''',(severidad, ))
 
-            print("{}\t\t\t{}\t{}\t{}".format('Medicion', 'Valor','Unidad', 'Severidad'))
-            for Medicion, Valor, Unidad, Severidad in cur.fetchall():
-                print("{}\t{}\t{}\t{}".format(Medicion, Valor, Unidad, Severidad))
+            print("{}\t\t\t{}\t{}\t{}\t{}".format('Medicion', 'Valor','Unidad', 'Severidad', 'Fecha-Hora'))
+            for Medicion, Valor, Unidad, Severidad, UnixTimeStamp in cur.fetchall():
+                print("{}\t{}\t{}\t{}\t{}".format(Medicion, Valor, Unidad, Severidad, datetime.datetime.fromtimestamp(UnixTimeStamp)))
             ret = True
         except:
             print(sys.exc_info()[1])
@@ -100,28 +100,31 @@ class AuditorRed:
         return ret
 
 
-    def Graficar_medicion(self, medicionid):
+    def Graficar_medicion(self, medicionid): #Agregar Fechas
         colors={'leve':'tab:olive', 'grave':'orange', 'critico':'red'}
         valores = []
         diahora = []
         alarmas = []
         diahoraA = []
         plt.figure()
+        ret =True
         try:
             cur = self._conn.cursor()
             cur.execute(''' SELECT ValorMedicion.Valor, ValorMedicion.UnixTimeStamp, Alarma.ValorMedicionID, Umbral.Severidad
                         FROM ValorMedicion JOIN Medicion ON (ValorMedicion.MedicionID = Medicion.MedicionID)
                         LEFT JOIN Alarma ON (ValorMedicion.ValorMedicionID = Alarma.ValorMedicionID)
                         LEFT JOIN Umbral ON (Alarma.UmbralID = Umbral.UmbralID)
-                        WHERE Medicion.MedicionID = %s;
+                        WHERE Medicion.MedicionID = %s
+                        ORDER BY ValorMedicion.UnixTimeStamp;
                         ''', (medicionid,))
 
             for Valor, UnixTimeStamp, Alarma, Severidad in cur.fetchall():
                 valores.append(Valor)
-                diahora.append(datetime.datetime.fromtimestamp(UnixTimeStamp))
+                diahora.append(datetime.fromtimestamp(UnixTimeStamp))
                 if Alarma:
-                    plt.plot(datetime.datetime.fromtimestamp(UnixTimeStamp),Valor,'x',color = colors[Severidad])
+                    plt.plot(datetime.fromtimestamp(UnixTimeStamp),Valor,'x',color = colors[Severidad])
             plt.plot(diahora,valores)
+            plt.tick_params(axis='x', rotation=70)
         except:
             print(sys.exc_info()[1])
             ret = False
@@ -139,7 +142,6 @@ class AuditorRed:
             referencias=cur.fetchall()
 
             for nombre, unidad, umbral_inf, umbral_sup, severidad in referencias:
-                print(severidad)
                 plt.axhline(umbral_inf, ls='--', c=colors[severidad])
                 plt.axhline(umbral_sup, ls='--', c=colors[severidad])
             #plt.legend()
@@ -152,6 +154,36 @@ class AuditorRed:
             cur.close()
             plt.show()
             return ret
+
+    def Reporte(self,Edificio='%', Tablero='%', Linea='%'):
+        try:
+            cur = self._conn.cursor()
+            cur.execute('''SELECT Edificio.Nombre AS 'Edificio',
+                            Tablero.Nombre AS 'Tablero',
+                            Linea.Nombre AS 'Linea',
+                            COUNT(ValorMedicion.MedicionID) AS 'Muestras',
+                            COUNT(Alarma.ValorMedicionID) AS 'Alarmas',
+                            MIN(ValorMedicion.UnixTimeStamp),
+                            MAX(ValorMedicion.UnixTimeStamp)
+                            FROM Edificio
+                            JOIN Tablero ON (Tablero.EdificioID = Edificio.EdificioID)
+                            JOIN Linea ON (Linea.TableroID = Tablero.TableroID) 
+                            JOIN Medicion ON (Medicion.LineaID = Linea.LineaID) 
+                            JOIN ValorMedicion ON (ValorMedicion.MedicionID = Medicion.MedicionID)
+                            LEFT JOIN Alarma ON (Alarma.ValorMedicionID = ValorMedicion.ValorMedicionID)
+                            WHERE Edificio.Nombre LIKE %s
+                            AND Tablero.Nombre LIKE %s
+                            AND Linea.Nombre LIKE %s
+                            GROUP BY Medicion.LineaId;
+                        ''',(Edificio,Tablero,Linea))
+
+            print("{}\t{}\t\t{}\t\t\t{}\t{}\t\t{}\t{}".format('Edificio', 'Tablero','Linea', 'Muestras', 'Alarmas', 'Muestra más antigua', 'Muestra más reciente'))
+            for Edificio, Tablero, Linea, Muestras, Alarmas, Oldest, Newest in cur.fetchall():
+                print("{}\t\t{}\t{}\t{}\t\t{}\t\t{}\t{}".format(Edificio, Tablero, Linea, Muestras, Alarmas, datetime.fromtimestamp(Oldest), datetime.fromtimestamp(Newest)))
+        except:
+            print('Se chotió')
+        finally:
+            cur.close()
 
 
 
@@ -168,5 +200,6 @@ if __name__ == '__main__':
 
     #auditor.Listar_alarmas()
     #auditor.Listar_mediciones()
-    auditor.Graficar_medicion(medicionid = 1)
+    #auditor.Graficar_medicion(medicionid = 1)
+    auditor.Reporte(Edificio='coso')
 
