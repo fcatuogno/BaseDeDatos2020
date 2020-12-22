@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import sys
 import time as time
 import numpy as np
 import paho.mqtt.client as mqtt
@@ -11,8 +12,10 @@ import threading
 LINEA = 1 
 __MEDICION_TENSION__ = 1
 __MEDICION_CORRIENTE__ = 2
-__MEDICION_ID__ = 1  #Modificar este para prueba
+__MEDICION_ID__ = sys.argv[1]  
 config_actual={}
+
+Unidad = {'tension': 220, 'corriente': 6}
 
 def Listen(topic):
     print('Entro a Listen')
@@ -35,8 +38,8 @@ def on_message(client, userdata, msg):  # The callback for when a PUBLISH messag
             periodo_tension = data['intervalo']
             print(f"Periodo nuevo Tension = {data['intervalo']}")
         elif data['unidadID']==__MEDICION_CORRIENTE__:
-            periodo_tension = data['intervalo']
-            print(f"Periodo nuevo Tension = {data['intervalo']}")
+            perioso_corriente = data['intervalo']
+            print(f"Periodo nuevo corriente = {data['intervalo']}")
             config_actual = data;
         else:
             print(f"Es necesario configurar medicion = {data}")
@@ -54,7 +57,7 @@ HiloListen = threading.Thread(target=Listen, args=('AuditorRed/MedicionConf',), 
 HiloListen.start()
 
 while True:
-    tension = np.random.normal(220,220*0.05)
+    tension = np.random.normal(Unidad[sys.argv[2]],Unidad[sys.argv[2]]*0.02)
     TOD = int(time.time())
 
     if(config_actual):
