@@ -83,9 +83,14 @@ class AuditorRed:
             
 
 
-    def Listar_alarmas(self, severidad = '%'):
+    def Listar_alarmas(self, severidad = '%', since=0, until=time.time()):
         if (severidad is None):
             severidad = '%'        
+
+        if(since == None):
+            since = 0;
+        if(until == None):
+            until=time.time()
 
         if not self._verifica_conexion():
             return False
@@ -97,7 +102,8 @@ class AuditorRed:
                     JOIN Medicion ON (ValorMedicion.MedicionID = Medicion.MedicionID)
                     JOIN Unidad ON (Medicion.UnidadID = Unidad.UnidadID)
                     WHERE Umbral.Severidad LIKE %s
-                ''',(severidad, ))
+                    AND ValorMedicion.UnixTimeStamp BETWEEN %s AND %s
+                ''',(severidad, since, until))
 
             print("{}\t\t\t{}\t{}\t{}\t{}".format('Medicion', 'Valor','Unidad', 'Severidad', 'Fecha-Hora'))
             for Medicion, Valor, Unidad, Severidad, UnixTimeStamp in cur.fetchall():
@@ -257,7 +263,8 @@ if __name__ == '__main__':
     parser_mediciones = subparsers.add_parser('mediciones', help='Lista todas las mediciones configuradas',
                                                 parents=[parent_parser])
 
-    parser_alarmas = subparsers.add_parser('alarmas', help='Lista todas los valores alarmados registrados')
+    parser_alarmas = subparsers.add_parser('alarmas', help='Lista todas los valores alarmados registrados',
+                                                parents=[time_parser])
     parser_alarmas.add_argument('--severidad','-sev',dest='severidad', choices=['leve','grave','critico'])
 
     parser_reporte = subparsers.add_parser('reporte', help='Reporte de los datos registrados',
@@ -279,12 +286,22 @@ if __name__ == '__main__':
             hasta = hasta.timestamp()
         else:
             hasta = args.until
-        print(desde)
 
         auditor.Graficar_medicion(medicionid=args.MedicionID, since=desde, until=hasta)
 
     elif(args.opcion == 'alarmas'):
-        auditor.Listar_alarmas(severidad = args.severidad)
+        if(args.since is not None):
+            desde = datetime.strptime(args.since, "%d/%m/%Y-%H:%M:%S")
+            desde = desde.timestamp()
+        else:
+            desde = args.since
+        if(args.until is not None):
+            hasta = datetime.strptime(args.until, "%d/%m/%Y-%H:%M:%S")
+            hasta = hasta.timestamp()
+        else:
+            hasta = args.until
+
+        auditor.Listar_alarmas(severidad = args.severidad, since=desde, until=hasta)
 
     elif(args.opcion == 'mediciones'):
         auditor.Listar_mediciones(edificio=args.edificio, tablero=args.tablero, linea=args.linea)
