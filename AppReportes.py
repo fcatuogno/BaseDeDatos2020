@@ -4,10 +4,11 @@
 import os
 import sys
 import time
-from datetime import datetime
+import argparse
 import MySQLdb
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 class AuditorRed:
     '''
@@ -47,6 +48,12 @@ class AuditorRed:
         return True
 
     def Listar_mediciones(self, edificio='%', tablero='%', linea='%'):
+        if edificio is None:
+                edificio = '%'
+        if tablero is None:
+                tablero = '%'
+        if linea is None:
+                linea = '%'
         curEdif = self._conn.cursor()
         curEdif.execute('SELECT * FROM Edificio WHERE Nombre LIKE %s',(edificio,))
         Edificios = curEdif.fetchall()
@@ -77,6 +84,9 @@ class AuditorRed:
 
 
     def Listar_alarmas(self, severidad = '%'):
+        if (severidad is None):
+            severidad = '%'        
+
         if not self._verifica_conexion():
             return False
         try:
@@ -107,6 +117,12 @@ class AuditorRed:
         diahora = []
         alarmas = []
         diahoraA = []
+
+        if(since == None):
+            since = 0;
+        if(until == None):
+            until=time.time()
+
         plt.figure()
         ret =True
         try:
@@ -159,7 +175,13 @@ class AuditorRed:
             plt.show()
             return ret
 
-    def Reporte(self,Edificio='%', Tablero='%', Linea='%'):
+    def Reporte(self,edificio='%', tablero='%', linea='%'):
+        if edificio is None:
+            edificio = '%'
+        if tablero is None:
+            tablero = '%'
+        if linea is None:
+            linea = '%'
         try:
             cur = self._conn.cursor()
             cur.execute('''SELECT Edificio.Nombre AS 'Edificio',
@@ -182,11 +204,11 @@ class AuditorRed:
                             AND Tablero.Nombre LIKE %s
                             AND Linea.Nombre LIKE %s
                             GROUP BY Medicion.MedicionID
-                            ''',(Edificio,Tablero,Linea))
+                            ''',(edificio,tablero,linea))
 
-            print("{}\t{}\t\t{}\t\t\t{}\t\t\t{}\t{}\t{}\t{}\t{}".format('Edificio', 'Tablero','Linea','Medicion','Muestras', 'Alarmas','Umbrales', 'Muestra más antigua', 'Muestra más reciente'))
+            print("{}\t{}\t\t{}\t\t\t{}\t\t\t\t{}\t{}\t{}\t{}\t{}".format('Edificio', 'Tablero','Linea','Medicion','Muestras', 'Alarmas','Umbrales', 'Muestra más antigua', 'Muestra más reciente'))
             for Edificio, Tablero, Linea, Medicion, Muestras, Alarmas, Umbrales, Oldest, Newest in cur.fetchall():
-                print("{}\t\t{}\t{}\t{}\t{}\t\t{}\t{}\t\t{}\t{}".format(Edificio, Tablero, Linea, Medicion, Muestras, Alarmas,Umbrales, datetime.fromtimestamp(Oldest), datetime.fromtimestamp(Newest)))
+                print("{}\t\t{}\t{}\t{}\t\t{}\t\t{}\t{}\t\t{}\t{}".format(Edificio, Tablero, Linea, Medicion, Muestras, Alarmas,Umbrales, datetime.fromtimestamp(Oldest), datetime.fromtimestamp(Newest)))
         except:
             print(sys.exc_info()[1])
         finally:
@@ -199,14 +221,76 @@ if __name__ == '__main__':
     mpl.use('TkAgg')
 
     auditor = AuditorRed(host='localhost',
-                                 user='guest',
-                                 passwd='guest',
-                                 dbase='AuditorRed')
+                         user='guest',
+                         passwd='guest',
+                         dbase='AuditorRed')
 
-    auditor.conectar()
+    try:
+        auditor.conectar()
+    except:
+        print('No pudo conectarse a la base de datos:')
+        print(sys.exc_info()[1])
+        exit()
 
-    #auditor.Listar_alarmas()
+
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument('--edificio','-e',dest='edificio')
+    parent_parser.add_argument('--tablero','-t',dest='tablero')
+    parent_parser.add_argument('--linea','-l',dest='linea')
+
+    time_parser = argparse.ArgumentParser(add_help=False)
+    time_parser.add_argument('--since', '-s', metavar='dd/mm/yyyy-hh:mm:ss',dest='since',help='Date Time desde cuando tomar valores')  
+    time_parser.add_argument('--until', '-u', metavar='dd/mm/yyyy-hh:mm:ss',dest='until',help='Date Time hasta cuando tomar valores')
+
+    parser = argparse.ArgumentParser(description='Realiza consultas, ejecuta reportes sobre el auditor de la red')
+    #parser.add_argument('opcion', metavar='Opcion',
+    #                    help='Que acción desea ejecutar del Auditor de la Red')
+
+    subparsers = parser.add_subparsers(help='additional help', dest='opcion')
+
+    parser_grafica = subparsers.add_parser('grafica', help='Grafica los valores de la medicion especificada mediante ID',
+                                                parents=[time_parser])
+    parser_grafica.add_argument('MedicionID',metavar='ID', type=int,
+                             help="ID de la Medicion a graficar, consultar IDs con cmd 'medicion'")
+    #parser_grafica.set_defaults(fun=auditor.Graficar_medicion(MedicionID))
+
+    parser_mediciones = subparsers.add_parser('mediciones', help='Lista todas las mediciones configuradas',
+                                                parents=[parent_parser])
+
+    parser_alarmas = subparsers.add_parser('alarmas', help='Lista todas los valores alarmados registrados')
+    parser_alarmas.add_argument('--severidad','-sev',dest='severidad', choices=['leve','grave','critico'])
+
+    parser_reporte = subparsers.add_parser('reporte', help='Reporte de los datos registrados',
+                                             parents=[parent_parser,time_parser])
+
+  
+    args= parser.parse_args()
+    print(args)
+
+    if(args.opcion == 'grafica'):
+
+        if(args.since is not None):
+            desde = datetime.strptime(args.since, "%d/%m/%Y-%H:%M:%S")
+            desde = desde.timestamp()
+        else:
+            desde = args.since
+        if(args.until is not None):
+            hasta = datetime.strptime(auditorrgs.until, "%d/%m/%Y-%H:%M:%S")
+            hasta = hasta.timestamp()
+        else:
+            hasta = args.until
+        print(desde)
+
+        auditor.Graficar_medicion(medicionid=args.MedicionID, since=desde, until=hasta)
+
+    elif(args.opcion == 'alarmas'):
+        auditor.Listar_alarmas(severidad = args.severidad)
+
+    elif(args.opcion == 'mediciones'):
+        auditor.Listar_mediciones(edificio=args.edificio, tablero=args.tablero, linea=args.linea)
+
+    elif(args.opcion == 'reporte'):
+        auditor.Reporte(edificio=args.edificio, tablero=args.tablero, linea=args.linea)
     #auditor.Listar_mediciones()
-    #auditor.Graficar_medicion(medicionid = 2)
-    auditor.Reporte()
+    #auditor.Reporte()
 
