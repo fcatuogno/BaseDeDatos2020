@@ -282,7 +282,7 @@ if __name__ == '__main__':
         else:
             desde = args.since
         if(args.until is not None):
-            hasta = datetime.strptime(auditorrgs.until, "%d/%m/%Y-%H:%M:%S")
+            hasta = datetime.strptime(args.until, "%d/%m/%Y-%H:%M:%S")
             hasta = hasta.timestamp()
         else:
             hasta = args.until
